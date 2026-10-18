@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import functools
 import json
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Callable, Protocol, runtime_checkable
@@ -296,6 +297,20 @@ def notify_sinks(event: ToolEvent) -> None:
             pass
 
 
+def _notify_started(tool: str, started_at: str) -> str:
+    call_id = uuid.uuid4().hex
+    with _sink_lock():
+        sinks = list(_sinks)
+    for sink in sinks:
+        callback = getattr(sink, "on_tool_started", None)
+        if callback:
+            try:
+                callback(call_id, tool, started_at)
+            except Exception:
+                pass
+    return call_id
+
+
 def traced(
     tool_name: str,
     *,
@@ -322,6 +337,7 @@ def traced(
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 started_at = _now_iso()
                 start = _time.perf_counter()
+                call_id = _notify_started(tool_name, started_at)
                 kw_summary = dict(kwargs)
                 title = (title_fn or default_title_fn)(tool_name, kw_summary)
                 arg_summary = (args_fn or default_args_fn)(kw_summary)
@@ -353,6 +369,7 @@ def traced(
                         duration_ms=duration_ms,
                         ok=ok,
                         error=error,
+                        extra={"desktop_call_id": call_id},
                     )
                     notify_sinks(event)
 
@@ -362,6 +379,7 @@ def traced(
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             started_at = _now_iso()
             start = _time.perf_counter()
+            call_id = _notify_started(tool_name, started_at)
             # Bound kwargs for the summary (positional args are not summarized by
             # default; this server's tools are all kwarg-driven at the MCP layer).
             kw_summary = dict(kwargs)
@@ -395,6 +413,7 @@ def traced(
                     duration_ms=duration_ms,
                     ok=ok,
                     error=error,
+                    extra={"desktop_call_id": call_id},
                 )
                 notify_sinks(event)
 

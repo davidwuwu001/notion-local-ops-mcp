@@ -189,6 +189,20 @@ def _summarize_rpc_body(body: bytes) -> dict[str, Any]:
     }
 
 
+class DesktopProbeMiddleware:
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        from .desktop_monitor import desktop_probe
+
+        marker = desktop_probe.set(Headers(raw=scope.get("headers", [])).get("x-local-ops-desktop") == "1")
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            desktop_probe.reset(marker)
+
+
 class MCPDebugLoggingMiddleware:
     def __init__(
         self,
@@ -635,6 +649,7 @@ def build_http_compat_app(
             Mount("/", app=dispatcher),
         ],
         middleware=[
+            StarletteMiddleware(DesktopProbeMiddleware),
             StarletteMiddleware(
                 MCPDebugLoggingMiddleware,
                 get_debug_enabled=get_debug_enabled,

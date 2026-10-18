@@ -1,6 +1,8 @@
 .venv/
 .env
 .env.local
+.env.*
+!.env.example
 cloudflared.local.yml
 cloudflared.local.yaml
 .pytest_cache/
@@ -12,6 +14,19 @@ __pycache__/
 *.egg-info/
 .DS_Store
 .wrangler/
+dist/
+*.app/
+
+# Private deployment records and runtime data (never publish)
+/Handoff.md
+/docs/desktop-acceptance.md
+/.notion-local-ops-mcp/
+/.cloudflared/
+/logs/
+/screenshots/
+*.pem
+*.key
+*credentials*.json
 
 # Editor / tool private state
 .commandcode/

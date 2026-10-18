@@ -4,6 +4,8 @@
 
 Turn a Notion **MCP Agent** into a local coding agent for local files, shell, git, and delegated tasks.
 
+This desktop-enhanced edition is maintained by [davidwuwu001](https://github.com/davidwuwu001), based on [catoncat/notion-local-ops-mcp](https://github.com/catoncat/notion-local-ops-mcp). The original project, upstream history, and [MIT license](LICENSE) are preserved. See [authors and attribution](AUTHORS.md).
+
 ![MCP Agent working in a local repo](./assets/notion/notion-handoff-chat.png)
 
 ## What This Project Does
@@ -12,10 +14,20 @@ Turn a Notion **MCP Agent** into a local coding agent for local files, shell, gi
 - lets an MCP Agent work on a real local repo instead of only editing Notion pages
 - supports delegated long-running tasks through local `codex` or `claude`
 
+## macOS desktop console
+
+After configuring `.env`, the Python virtual environment, and a named tunnel, run `./scripts/install-desktop.sh` to build a native Chinese console at `dist/本地 MCP 控制台.app` and create its Desktop symlink. Requires macOS 13+, Swift tools, and a valid local signing identity (`NOTION_OPS_SIGNING_IDENTITY` can select it). Run `./tests/desktop/run.sh` for isolated lifecycle/protocol checks.
+
+Opening the app starts MCP and the tunnel; minimizing keeps them running; closing the window or pressing Cmd-Q stops owned services and tasks. The UI provides connection/auth checks, dynamic tools, local activity, task cancellation/output, masked connection credentials, default-directory selection, and redacted logs. App probes do not appear as client activity. Descendant processes are cleaned up when their task finishes.
+
+Use either this app or the existing launchd/dev-tunnel workflow. Before switching, back up and unload only this project's old LaunchAgents and disable their automatic restart. The installer does not change running services. The default directory is not a filesystem sandbox, and a shared token does not identify individual Notion accounts. See [desktop design](docs/desktop-mvp.md) and [testing guide](docs/desktop-testing.md).
+
+If a TUN proxy interrupts Cloudflare, explicitly set `NOTION_LOCAL_OPS_TUNNEL_DIRECT=1` in `.env` (desktop only) and use reachable IPv4 edges. The app binds only cloudflared to the primary physical interface's current IPv4 and reconnects the tunnel when that address changes. It does not modify system proxies or routes. Tunnel failures preserve local MCP/tasks and retry at 10-second intervals, waiting for a physical IPv4 if unavailable. The default is `0`, preserving existing routing.
+
 ## Quick Start
 
 ```bash
-git clone https://github.com/<your-account>/notion-local-ops-mcp.git
+git clone https://github.com/davidwuwu001/notion-local-ops-mcp.git
 cd notion-local-ops-mcp
 cp .env.example .env
 ./scripts/dev-tunnel.sh
@@ -216,7 +228,7 @@ If you also want the **Notion AI instruction page + project-management** workflo
 If you prefer the full step-by-step setup, follow this path:
 
 ```bash
-git clone https://github.com/<your-account>/notion-local-ops-mcp.git
+git clone https://github.com/davidwuwu001/notion-local-ops-mcp.git
 cd notion-local-ops-mcp
 
 cp .env.example .env
@@ -249,7 +261,7 @@ Use the printed tunnel URL with `/mcp` appended in Notion, and use `NOTION_LOCAL
 ### Manual Install
 
 ```bash
-git clone https://github.com/<your-account>/notion-local-ops-mcp.git
+git clone https://github.com/davidwuwu001/notion-local-ops-mcp.git
 cd notion-local-ops-mcp
 
 python3.11 -m venv .venv

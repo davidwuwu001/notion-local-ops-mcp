@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
+from contextlib import asynccontextmanager
 import os
 import re
 
@@ -123,6 +125,11 @@ def _current_debug_mcp_logging() -> bool:
 # is guarded inside register_sink, so repeated imports of this module are safe.
 if RELAY_BRIDGE_ENABLED:
     register_sink(RelayBridgeSink())
+
+if os.environ.get("NOTION_LOCAL_OPS_DESKTOP_MONITOR") == "1":
+    from .desktop_monitor import DesktopMonitor
+
+    register_sink(DesktopMonitor(STATE_DIR))
 
 
 READ_ONLY_TOOL = {
@@ -916,7 +923,7 @@ def build_http_app():
         path="/mcp",
         transport="sse",
     )
-    return build_http_compat_app(
+    app = build_http_compat_app(
         streamable_app=streamable_app,
         legacy_sse_app=legacy_sse_app,
         app_name=APP_NAME,
@@ -926,6 +933,18 @@ def build_http_app():
         get_debug_enabled=_current_debug_mcp_logging,
         instructions=MCP_INSTRUCTIONS,
     )
+    original_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def lifespan(app):
+        try:
+            async with original_lifespan(app):
+                yield
+        finally:
+            await asyncio.to_thread(registry.shutdown)
+
+    app.router.lifespan_context = lifespan
+    return app
 
 
 class _ReadySignalServer(uvicorn.Server):

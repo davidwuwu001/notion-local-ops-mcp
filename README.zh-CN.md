@@ -4,6 +4,8 @@
 
 把 Notion 里的 **MCP Agent** 变成一个可操作本地文件、shell、git 和委托任务的 coding agent。
 
+本桌面增强版由 [davidwuwu001](https://github.com/davidwuwu001) 维护，基于原作者 [catoncat 的 notion-local-ops-mcp](https://github.com/catoncat/notion-local-ops-mcp)。保留原项目历史及 [MIT 许可证](LICENSE)，不将上游代码声明为本仓库维护者原创。详见 [作者与贡献说明](AUTHORS.md)。
+
 ![在本地仓库中工作的 MCP Agent](./assets/notion/notion-handoff-chat.png)
 
 ## 这个项目做什么
@@ -12,10 +14,32 @@
 - 让 MCP Agent 真正在本地仓库里工作，而不只是编辑 Notion 页面
 - 支持通过本地 `codex` 或 `claude` 委托长任务
 
+## macOS 管理 App
+
+配置好 `.env`、Python 虚拟环境和命名隧道后，可构建原生中文管理界面：
+
+```bash
+./scripts/install-desktop.sh
+./tests/desktop/run.sh
+```
+
+产物位于 `dist/本地 MCP 控制台.app`，桌面入口是指向它的软链接。需要 macOS 13+、Swift 工具和本机有效签名身份；可用 `NOTION_OPS_SIGNING_IDENTITY` 指定签名。
+
+- 打开 App 自动启动 MCP 和隧道；最小化继续运行，关闭窗口或 `Cmd-Q` 停止自有服务并退出。
+- 总览显示真实连接和鉴权检查；工具清单动态读取，活动记录排除 App 自身检查。
+- 支持后台任务查看和停止、接入地址/Token 复制、默认目录选择、脱敏日志。
+- 有活动任务时先确认；服务停止会结束自有任务及后代，任务产生的后台进程不能越过任务生命周期长期驻留。
+
+App 和原有 launchd/dev-tunnel 启动方式应择一使用。首次改用 App 时，先备份、停止并禁用本项目旧 LaunchAgent；不要终止占用端口的无关进程。安装脚本仅构建 App 和桌面入口，不会修改已运行服务。
+
+若 TUN 代理中断 Cloudflare 隧道，可在 `.env` 显式设置 `NOTION_LOCAL_OPS_TUNNEL_DIRECT=1`（仅桌面 App 生效），并使用可达的 IPv4 边缘配置。App 自动绑定系统主物理网卡的当前 IPv4，地址变化时仅重连隧道，不修改全局代理或路由。隧道退出/重连失败保留本地 MCP 和任务，间隔 10 秒重试；无物理 IPv4 时等待网络恢复。默认值为 `0`，不改变现有路由方式。
+
+默认目录只是相对路径起点，并非权限沙箱；共享 Token 无法识别具体 Notion 账号。无需另外部署 Relay 看板即可查看本地活动。开发与验证方法见 [桌面 MVP](docs/desktop-mvp.md) 和 [测试指南](docs/desktop-testing.md)。
+
 ## 快速开始
 
 ```bash
-git clone https://github.com/<your-account>/notion-local-ops-mcp.git
+git clone https://github.com/davidwuwu001/notion-local-ops-mcp.git
 cd notion-local-ops-mcp
 cp .env.example .env
 ./scripts/dev-tunnel.sh
@@ -153,7 +177,7 @@ NOTION_LOCAL_OPS_RELAY_BRIDGE_TIMEOUT=1.5         # 秒，trace POST 的超时�
 如果你想按完整步骤配置，可以走这条路径：
 
 ```bash
-git clone https://github.com/<your-account>/notion-local-ops-mcp.git
+git clone https://github.com/davidwuwu001/notion-local-ops-mcp.git
 cd notion-local-ops-mcp
 
 cp .env.example .env
@@ -186,7 +210,7 @@ NOTION_LOCAL_OPS_AUTH_TOKEN="replace-me"
 ### 手动安装
 
 ```bash
-git clone https://github.com/<your-account>/notion-local-ops-mcp.git
+git clone https://github.com/davidwuwu001/notion-local-ops-mcp.git
 cd notion-local-ops-mcp
 
 python3.11 -m venv .venv

@@ -268,6 +268,7 @@ def test_run_task_decodes_utf8_process_output(tmp_path: Path, monkeypatch) -> No
             return None
 
     monkeypatch.setattr(executors.subprocess, "Popen", FakeProcess)
+    monkeypatch.setattr(executors, "_kill_process_tree", lambda *_: None)
 
     registry._run_task(
         task_id=task["task_id"],

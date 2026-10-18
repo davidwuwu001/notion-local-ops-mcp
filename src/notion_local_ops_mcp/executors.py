@@ -5,6 +5,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import threading
 import time
@@ -18,6 +19,16 @@ from .tasks import TaskStore
 TERMINAL_TASK_STATUSES = {"succeeded", "failed", "cancelled"}
 ALLOWED_COMMIT_MODES = {"allowed", "required", "forbidden"}
 IS_WINDOWS = os.name == "nt"
+
+
+def _kill_process_tree(process: subprocess.Popen, sig: int | None = None) -> None:
+    try:
+        if IS_WINDOWS:
+            process.kill()
+        else:
+            os.killpg(process.pid, signal.SIGKILL if sig is None else sig)
+    except ProcessLookupError:
+        pass
 
 
 def _split_command(command: str) -> list[str]:
@@ -302,8 +313,8 @@ class ExecutorRegistry:
             process = self._processes.get(task_id)
         if cancel_event is not None:
             cancel_event.set()
-        if process is not None and process.poll() is None:
-            process.kill()
+        if process is not None:
+            _kill_process_tree(process)
         updated = self.store.update(task_id, status="cancelled")
         self._mark_completed(task_id)
         return {
@@ -311,6 +322,29 @@ class ExecutorRegistry:
             "status": updated["status"],
             "cancelled": True,
         }
+
+    def shutdown(self) -> None:
+        with self._lock:
+            task_ids = list(self._cancel_events)
+            processes = list(self._processes.values())
+            for event in self._cancel_events.values():
+                event.set()
+        for task_id in task_ids:
+            try:
+                if self.store.get(task_id).get("status") not in TERMINAL_TASK_STATUSES:
+                    self.store.update(task_id, status="cancelled")
+                    self._mark_completed(task_id)
+            except FileNotFoundError:
+                continue
+        for process in processes:
+            _kill_process_tree(process, signal.SIGTERM)
+        deadline = time.monotonic() + 1
+        for process in processes:
+            try:
+                process.wait(timeout=max(0, deadline - time.monotonic()))
+            except subprocess.TimeoutExpired:
+                pass
+            _kill_process_tree(process)
 
     def _resolve_executor(self, executor: str) -> tuple[str, str]:
         if executor == "codex":
@@ -404,17 +438,18 @@ class ExecutorRegistry:
             text=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            start_new_session=not IS_WINDOWS,
         )
         with self._lock:
             self._processes[task_id] = process
 
         if cancel_event.is_set() and process.poll() is None:
-            process.kill()
+            _kill_process_tree(process)
 
         try:
             stdout, stderr = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
-            process.kill()
+            _kill_process_tree(process)
             stdout, stderr = process.communicate()
             stdout = _decode_output(stdout)
             stderr = _decode_output(stderr)
@@ -423,6 +458,7 @@ class ExecutorRegistry:
             self.store.update(task_id, status="failed", timed_out=True)
             return
         finally:
+            _kill_process_tree(process)
             with self._lock:
                 self._processes.pop(task_id, None)
 
@@ -482,6 +518,7 @@ class ExecutorRegistry:
                 text=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                start_new_session=not IS_WINDOWS,
             )
         except OSError as exc:
             self.store.write_logs(task_id, stdout="", stderr=str(exc))
@@ -492,12 +529,12 @@ class ExecutorRegistry:
             self._processes[task_id] = process
 
         if cancel_event.is_set() and process.poll() is None:
-            process.kill()
+            _kill_process_tree(process)
 
         try:
             stdout, stderr = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
-            process.kill()
+            _kill_process_tree(process)
             stdout, stderr = process.communicate()
             stdout = _decode_output(stdout)
             stderr = _decode_output(stderr)
@@ -506,6 +543,7 @@ class ExecutorRegistry:
             self.store.update(task_id, status="failed", timed_out=True)
             return
         finally:
+            _kill_process_tree(process)
             with self._lock:
                 self._processes.pop(task_id, None)
 
