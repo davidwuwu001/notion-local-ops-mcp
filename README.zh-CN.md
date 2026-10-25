@@ -166,7 +166,7 @@ NOTION_LOCAL_OPS_RELAY_BRIDGE_TIMEOUT=1.5         # 秒，trace POST 的超时�
 ## 运行要求
 
 - Python 3.11+
-- FastMCP 3.x（`fastmcp>=3.2.4,<4`，由 `pyproject.toml` 安装）
+- FastMCP 4.x（`fastmcp>=4.1.3,<5`，由 `pyproject.toml` 安装）
 - `cloudflared`
 - 一个可在 Notion 中配置自定义 MCP 的 **MCP Agent**
 - 可选：`codex` CLI

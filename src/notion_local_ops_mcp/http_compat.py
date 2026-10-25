@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import AsyncExitStack, asynccontextmanager
+from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version as package_version
 import hmac
 import json
@@ -51,7 +52,7 @@ DEBUG_LOGGER = logging.getLogger("notion_local_ops_mcp.mcp_debug")
 def _emit_debug_log(message: str, *args: object) -> None:
     DEBUG_LOGGER.info(message, *args)
     rendered = message % args if args else message
-    sys.stderr.write(f"{rendered}\n")
+    sys.stderr.write(f"{datetime.now(timezone.utc).isoformat()} {rendered}\n")
     sys.stderr.flush()
 
 
@@ -164,21 +165,13 @@ def _summarize_rpc_body(body: bytes) -> dict[str, Any]:
         method = item.get("method")
         params = item.get("params")
         tool_name = None
-        tool_args = None
-        params_summary = None
         if isinstance(params, dict):
             tool_name = params.get("name") or params.get("tool")
-            if "arguments" in params:
-                tool_args = _truncate_jsonish(params.get("arguments"))
-            else:
-                params_summary = _truncate_jsonish(params)
         entries.append(
             {
                 "id": item.get("id"),
                 "method": method,
                 "tool": tool_name,
-                "tool_args": tool_args,
-                "params_summary": params_summary,
             }
         )
     return {
@@ -259,6 +252,14 @@ class MCPDebugLoggingMiddleware:
 
         status_code: int | None = None
         stream_logged = False
+
+        _emit_debug_log(
+            "MCP_DEBUG request_id=%s phase=request_received method=%s path=%s session=%s",
+            request_id,
+            method,
+            path,
+            session_hint or "-",
+        )
 
         async def receive_wrapper() -> dict[str, Any]:
             nonlocal request_logged, rpc_summary

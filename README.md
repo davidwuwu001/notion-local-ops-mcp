@@ -217,7 +217,7 @@ If you also want the **Notion AI instruction page + project-management** workflo
 ## Requirements
 
 - Python 3.11+
-- FastMCP 3.x (`fastmcp>=3.2.4,<4`, installed from `pyproject.toml`)
+- FastMCP 4.x (`fastmcp>=4.1.3,<5`, installed from `pyproject.toml`)
 - `cloudflared`
 - A Notion workspace where you can configure an **MCP Agent** with custom MCP support
 - Optional: `codex` CLI

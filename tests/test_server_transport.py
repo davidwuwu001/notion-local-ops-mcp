@@ -431,7 +431,7 @@ def test_http_app_supports_legacy_sse_get_on_mcp(tmp_path, monkeypatch) -> None:
         anyio.run(scenario)
 
 
-def test_debug_logging_middleware_logs_rpc_method_and_preserves_body(caplog) -> None:
+def test_debug_logging_middleware_logs_rpc_method_and_preserves_body(caplog, capsys) -> None:
     async def echo_json(request) -> JSONResponse:
         return JSONResponse(await request.json())
 
@@ -460,10 +460,16 @@ def test_debug_logging_middleware_logs_rpc_method_and_preserves_body(caplog) -> 
     assert response.status_code == 200
     assert response.json() == payload
     messages = [record.message for record in caplog.records if record.name == "notion_local_ops_mcp.mcp_debug"]
+    assert "phase=request_received" in messages[0]
     assert any("phase=request" in message and '"method":"tools/call"' in message for message in messages)
     assert any('"tool":"search"' in message for message in messages)
-    assert any('"tool_args":"{\\"mode\\":\\"text\\",\\"query\\":\\"TODO\\"}"' in message for message in messages)
+    assert all("TODO" not in message and "tool_args" not in message for message in messages)
     assert any("phase=response_end" in message and "status=200" in message for message in messages)
+    from datetime import datetime, timezone
+
+    emitted = capsys.readouterr().err.splitlines()
+    assert emitted
+    assert all(datetime.fromisoformat(line.split()[0]).tzinfo == timezone.utc for line in emitted)
 
 
 def test_http_app_debug_logging_does_not_break_streamable_http_initialize(tmp_path, monkeypatch) -> None:
@@ -481,7 +487,6 @@ def test_http_app_debug_logging_does_not_break_streamable_http_initialize(tmp_pa
                 async with streamable_http_client(url, http_client=client) as (
                     read_stream,
                     write_stream,
-                    _,
                 ):
                     async with ClientSession(read_stream, write_stream) as session:
                         await session.initialize()

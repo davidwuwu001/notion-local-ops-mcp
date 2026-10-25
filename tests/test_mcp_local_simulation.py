@@ -81,7 +81,7 @@ def _running_server(
 async def _mcp_session(url: str, *, token: str):
     headers = {"Authorization": f"Bearer {token}"}
     async with httpx.AsyncClient(headers=headers, timeout=10.0) as client:
-        async with streamable_http_client(url, http_client=client) as (read_stream, write_stream, _):
+        async with streamable_http_client(url, http_client=client) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
                 yield session
@@ -89,9 +89,9 @@ async def _mcp_session(url: str, *, token: str):
 
 async def _call_tool(session: ClientSession, name: str, arguments: dict[str, object]) -> dict[str, object]:
     result = await session.call_tool(name, arguments)
-    assert result.isError is False, result
-    assert result.structuredContent is not None
-    return result.structuredContent
+    assert result.is_error is False, result
+    assert result.structured_content is not None
+    return result.structured_content
 
 
 def test_mcp_run_command_stream_end_to_end(tmp_path: Path, monkeypatch) -> None:

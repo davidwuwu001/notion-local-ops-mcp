@@ -46,13 +46,13 @@ async def _request(url: str, tool: str = "server_info", arguments: dict | None =
     if config.AUTH_TOKEN:
         headers["Authorization"] = f"Bearer {config.AUTH_TOKEN}"
     async with httpx.AsyncClient(headers=headers, timeout=6, trust_env=False) as client:
-        async with streamable_http_client(url, http_client=client) as (reader, writer, _):
+        async with streamable_http_client(url, http_client=client) as (reader, writer):
             async with ClientSession(reader, writer) as session:
                 await session.initialize()
                 result = await session.call_tool(tool, arguments or {})
-                if result.isError:
+                if result.is_error:
                     raise RuntimeError("MCP 工具调用失败")
-                data = result.structuredContent
+                data = result.structured_content
                 if data is None:
                     data = next((json.loads(block.text) for block in result.content if getattr(block, "type", None) == "text"), {})
                 if not isinstance(data, dict):
