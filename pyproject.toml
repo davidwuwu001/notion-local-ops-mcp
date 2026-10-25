@@ -13,6 +13,7 @@ dependencies = [
     # against pyproject.toml so stale editable metadata cannot silently drift.
     "fastmcp>=4.1.3,<5",
     "uvicorn>=0.30.0",
+    "httpx>=0.27,<1",
 ]
 
 [project.optional-dependencies]
